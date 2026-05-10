@@ -1,6 +1,4 @@
-(ns httpee.curl
-  "Render a request map as a multi-line curl one-liner using POSIX-safe
-  single-quote escaping."
+(ns bbq.curl
   (:require [clojure.string :as str]))
 
 (defn- shell-quote [s]

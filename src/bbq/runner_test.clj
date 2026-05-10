@@ -1,8 +1,8 @@
-(ns httpee.runner-test
+(ns bbq.runner-test
   (:require [babashka.http-client :as http]
-            [clojure.test :refer [deftest is testing]]
-            [httpee]
-            [httpee.runner :as runner]))
+            [bbq]
+            [bbq.runner :as runner]
+            [clojure.test :refer [deftest is testing]]))
 
 (deftest discover-templates-test
   (let [out (runner/discover-templates ["auth" "users"])]
@@ -16,7 +16,7 @@
     (with-redefs [http/request (fn [req]
                                  (reset! captured req)
                                  fake-resp)
-                  httpee/env   (fn [_] "stub")]
+                  bbq/env      (fn [_] "stub")]
 
       (testing "config vars + CLI overrides flow into the rendered request"
         (let [resp (runner/run-template "users/show" {:id "42"})]

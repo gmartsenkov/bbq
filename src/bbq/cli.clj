@@ -1,6 +1,4 @@
-(ns httpee.cli
-  "CLI surface: the babashka.cli spec, override-arg parsing, and the
-  --help printer. The dispatch itself stays in httpee.bb."
+(ns bbq.cli
   (:require [babashka.cli :as cli]
             [clojure.string :as str]))
 
@@ -14,6 +12,6 @@
              [(keyword k) val])))
 
 (defn print-help []
-  (println "usage: bb httpee.bb <template> [k=v ...]")
+  (println "usage: bb bbq.bb <template> [k=v ...]")
   (println)
   (println (cli/format-opts spec)))

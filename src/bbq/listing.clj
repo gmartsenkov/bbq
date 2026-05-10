@@ -1,13 +1,10 @@
-(ns httpee.listing
-  "List discovered templates with their `:title` (extracted statically from
-  the parsed template forms — no eval, no network)."
+(ns bbq.listing
   (:require [babashka.fs :as fs]
-            [httpee.runner :as runner]))
+            [bbq.runner :as runner]))
 
 (defn- template-title [name]
-  ;; Walk parsed forms and return the first string `:title` we find on any
-  ;; map literal. Avoids eval'ing the template (which could require unbound
-  ;; vars or fire `json-request`).
+  ;; Walk the parsed forms instead of eval'ing — eval could require unbound
+  ;; vars or fire `json-request`, both of which we don't want for `bbq` list.
   (let [path (str name ".clj")]
     (when (fs/exists? path)
       (try
@@ -28,4 +25,4 @@
             (if t
               (println "❯" cell "  " t)
               (println "❯" cell)))))
-      (println "no templates discovered (configure :dirs in httpee.edn)"))))
+      (println "no templates discovered (configure :dirs in bbq.edn)"))))

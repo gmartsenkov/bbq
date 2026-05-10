@@ -1,14 +1,11 @@
 #!/usr/bin/env bb
 
-;; httpee.bb — Babashka entry point. The actual logic lives under
-;; `src/httpee/`; this file just parses CLI args and dispatches.
-
 (require '[babashka.cli :as cli]
-         '[httpee.cli :as cli-helpers]
-         '[httpee.curl :as curl]
-         '[httpee.listing :as listing]
-         '[httpee.output :as output]
-         '[httpee.runner :as runner])
+         '[bbq.cli :as cli-helpers]
+         '[bbq.curl :as curl]
+         '[bbq.listing :as listing]
+         '[bbq.output :as output]
+         '[bbq.runner :as runner])
 
 (when (= *file* (System/getProperty "babashka.file"))
   (let [{:keys [opts args]} (cli/parse-args *command-line-args* cli-helpers/spec)

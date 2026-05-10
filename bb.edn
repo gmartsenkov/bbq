@@ -1,11 +1,8 @@
 {:paths ["src"]
 
  :bbin/bin
- {httpee {:main-opts ["-f" "httpee.bb"]}}
+ {bbq {:main-opts ["-f" "bbq.bb"]}}
 
  :tasks
  {test {:doc  "Run tests"
-        ;; Run from examples/ so the templates + httpee.edn the tests
-        ;; reference resolve relative to cwd, the same way they would for
-        ;; an end user invoking `httpee` from their own project.
-        :task (shell {:dir "examples"} "bb" "../httpee_test.bb")}}}
+        :task (shell {:dir "examples"} "bb" "../bbq_test.bb")}}}

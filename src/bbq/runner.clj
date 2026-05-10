@@ -1,27 +1,20 @@
-(ns httpee.runner
-  "Template loading + execution. Reads `httpee.edn`, resolves template files
-  relative to cwd, evaluates them with `httpee/*vars*` bound to merged
-  config + overrides, and fires the HTTP request via babashka.http-client.
-
-  Loading this namespace also wires `httpee/*run-template*` so that
-  `(httpee/json-request \"...\")` from inside a template can call back into
-  the runner for nested fetches."
+(ns bbq.runner
   (:require [babashka.fs :as fs]
             [babashka.http-client :as http]
+            [bbq]
             [clojure.edn :as edn]
-            [clojure.string :as str]
-            [httpee]))
+            [clojure.string :as str]))
 
 (def ^:private running (atom #{}))
 
 (defn read-config []
-  (if (fs/exists? "httpee.edn")
-    (edn/read-string (slurp "httpee.edn"))
+  (if (fs/exists? "bbq.edn")
+    (edn/read-string (slurp "bbq.edn"))
     {:variables {}}))
 
 (defn read-template-forms [path]
-  ;; Read all top-level forms, so a template can have a leading `require`
-  ;; / `add-deps` plus the request map itself.
+  ;; Wrap in [...] so a template can have a leading `require` / `add-deps`
+  ;; alongside the request map; read-string only reads one form otherwise.
   (read-string (str "[" (slurp path) "]")))
 
 (defn discover-templates [dirs]
@@ -42,7 +35,7 @@
     (try
       (let [forms (read-template-forms path)
             vars  (merge (:variables (read-config)) overrides)]
-        (binding [httpee/*vars* vars]
+        (binding [bbq/*vars* vars]
           (eval (cons 'do forms))))
       (finally (swap! running disj name)))))
 
@@ -54,6 +47,5 @@
            :elapsed-ms (- (System/currentTimeMillis) start)
            :request    request)))
 
-;; Wire httpee/json-request so it can call back into the runner once any
-;; consumer has required this namespace.
-(alter-var-root #'httpee/*run-template* (constantly run-template))
+;; Loading this ns wires bbq/json-request to call back into run-template.
+(alter-var-root #'bbq/*run-template* (constantly run-template))

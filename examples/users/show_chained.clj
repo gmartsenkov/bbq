@@ -1,6 +1,6 @@
 ;; Chained-auth template — calls auth/login, plucks a field, uses it in this request.
 ;; Demonstrates `let` + `json-request` + `->` for navigation.
-(require '[httpee :refer [bearer json-request v]])
+(require '[bbq :refer [bearer json-request v]])
 
 (let [login (json-request "auth/login")
       who   (-> login :json :who)]

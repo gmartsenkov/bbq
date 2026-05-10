@@ -1,5 +1,5 @@
-;; Simple template — uses `org` from httpee.edn variables and `id` from CLI overrides.
-(require '[httpee :refer [env bearer json-encode v]])
+;; Simple template — uses `org` from bbq.edn variables and `id` from CLI overrides.
+(require '[bbq :refer [env bearer json-encode v]])
 
 {:title   "Users — Show"
  :method  :GET

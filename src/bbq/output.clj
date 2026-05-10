@@ -1,7 +1,4 @@
-(ns httpee.output
-  "Verbose response printing: request line, status + elapsed, headers
-  block, syntax-highlighted body via `bat` (when stdout is a TTY and bat
-  is on $PATH; otherwise plain bytes)."
+(ns bbq.output
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
             [clojure.string :as str]))
@@ -22,6 +19,8 @@
       :else                     nil)))
 
 (defn- highlight-body [body headers]
+  ;; Skip bat when stdout isn't a TTY (piped) or bat is missing — fall
+  ;; back to raw bytes so downstream tools don't see ANSI escapes.
   (let [lang (content-type-lang headers)]
     (if (and lang (System/console) (fs/which "bat"))
       (:out (p/sh {:in body :out :string}

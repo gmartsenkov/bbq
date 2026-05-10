@@ -1,9 +1,6 @@
-;; Templates can require any bundled namespace now that we eval directly.
-;; Add a Clojars dep at runtime with:
-;;   (babashka.deps/add-deps '{:deps {medley/medley {:mvn/version "1.4.0"}}})
 (require '[clojure.set :as set]
          '[clojure.string :as str]
-         '[httpee :refer [bearer v]])
+         '[bbq :refer [bearer v]])
 
 (let [extra-tags (set/union #{"v1"} #{"public"})]
   {:title   "Users — Show (with extra tags)"

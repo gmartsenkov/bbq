@@ -1,6 +1,6 @@
-(ns httpee.curl-test
-  (:require [clojure.test :refer [deftest is]]
-            [httpee.curl :as curl]))
+(ns bbq.curl-test
+  (:require [bbq.curl :as curl]
+            [clojure.test :refer [deftest is]]))
 
 (deftest render-test
   (let [req {:method  :POST

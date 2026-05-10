@@ -1,6 +1,6 @@
-(ns httpee.cli-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [httpee.cli :as cli]))
+(ns bbq.cli-test
+  (:require [bbq.cli :as cli]
+            [clojure.test :refer [deftest is testing]]))
 
 (deftest parse-overrides-test
   (is (= {}                       (cli/parse-overrides [])))
