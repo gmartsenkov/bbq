@@ -5,7 +5,8 @@
          '[clojure.string :as str])
 
 (let [extra-tags (set/union #{"v1"} #{"public"})]
-  {:method  :GET
+  {:title   "Users — Show (with extra tags)"
+   :method  :GET
    :uri     (str "https://httpbin.org/anything/" org "/users/" id)
    :headers {"x-tags"        (str/join "," (sort extra-tags))
              "authorization" (bearer "demo-token")}})

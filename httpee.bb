@@ -146,10 +146,30 @@
   (println)
   (println (cli/format-opts cli-spec)))
 
+(defn- template-title [name]
+  ;; Statically walk the parsed forms and return the first string `:title`
+  ;; we find on any map literal. Avoids eval'ing the template (which could
+  ;; require unbound vars or fire `json-request`).
+  (let [path (str name ".clj")]
+    (when (fs/exists? path)
+      (try
+        (->> (read-template-forms path)
+             (tree-seq coll? seq)
+             (some (fn [x]
+                     (when (and (map? x) (string? (:title x)))
+                       (:title x)))))
+        (catch Exception _ nil)))))
+
 (defn- list-templates []
   (let [templates (discover-templates (:dirs (read-config)))]
     (if (seq templates)
-      (doseq [t templates] (println "❯" t))
+      (let [titled (for [t templates] [t (template-title t)])
+            width  (apply max 0 (map (comp count first) titled))]
+        (doseq [[n t] titled]
+          (let [cell (format (str "%-" width "s") n)]
+            (if t
+              (println "❯" cell "  " t)
+              (println "❯" cell)))))
       (println "no templates discovered (configure :dirs in httpee.edn)"))))
 
 (when (= *file* (System/getProperty "babashka.file"))
