@@ -2,7 +2,7 @@
 
 A small HTTP client built on [babashka](https://github.com/babashka/babashka). Templates are plain Clojure forms, so requests live in your repo alongside the rest of your code, version naturally, and can use the full power of babashka!
 
-![demo](assets/demo.gif)
+![demo](assets/demo.gif?v=2)
 
 ## Installation
 
