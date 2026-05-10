@@ -81,7 +81,8 @@
 ;; ─── CLI ─────────────────────────────────────────────────────────────
 
 (def cli-spec
-  {:spec       {:help {:coerce :boolean :alias :h :desc "show this help"}}
+  {:spec       {:help     {:coerce :boolean :alias :h :desc "show this help"}
+                :complete {:coerce :boolean :desc "list template names for shell completion"}}
    :args->opts [:template]})
 
 (defn- parse-overrides [args]
@@ -137,6 +138,8 @@
 (when (= *file* (System/getProperty "babashka.file"))
   (let [{:keys [opts args]} (cli/parse-args *command-line-args* cli-spec)]
     (cond
+      (:complete opts)        (doseq [t (discover-templates (:dirs (read-config)))]
+                                (println t))
       (:help opts)            (print-help)
       (nil? (:template opts)) (list-templates)
       :else
