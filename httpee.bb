@@ -1,199 +1,34 @@
 #!/usr/bin/env bb
 
-;; httpee.bb — Babashka port. Templates are full Clojure forms evaluated
-;; with helpers + per-call variables in scope. Templates may `require`
-;; bundled namespaces or pull Clojars deps via `babashka.deps/add-deps`.
+;; httpee.bb — Babashka entry point. The actual logic lives under
+;; `src/httpee/`; this file just parses CLI args and dispatches.
 
 (require '[babashka.cli :as cli]
-         '[babashka.fs :as fs]
-         '[babashka.http-client :as http]
-         '[babashka.process :as p]
-         '[cheshire.core :as json]
-         '[clojure.edn :as edn]
-         '[clojure.string :as str])
-
-;; ─── helpers exposed to templates ────────────────────────────────────
-;; Defs in this namespace are visible inside `eval`'d templates.
-
-(def ^:private cache   (atom {}))
-(def ^:private running (atom #{}))
-
-(declare run-template)
-
-(defn env [name]
-  (or (System/getenv name)
-      (throw (ex-info (str "environment variable '" name "' is not set") {}))))
-
-(defn bearer [token] (str "Bearer " token))
-
-(defn basic [user pass]
-  (str "Basic " (.encodeToString (java.util.Base64/getEncoder)
-                                 (.getBytes (str user ":" pass)))))
-
-(defn json-request [name]
-  (or (@cache name)
-      (let [body (json/parse-string (:body (run-template name {})) true)]
-        (swap! cache assoc name body)
-        body)))
-
-(def json-encode json/generate-string)
-
-;; ─── template loading + running ──────────────────────────────────────
-
-(defn- read-config []
-  (if (fs/exists? "httpee.edn")
-    (edn/read-string (slurp "httpee.edn"))
-    {:variables {}}))
-
-(defn- read-template-forms [path]
-  ;; Read all top-level forms, so a template can have a leading `require`
-  ;; / `add-deps` plus the request map itself.
-  (read-string (str "[" (slurp path) "]")))
-
-(defn- discover-templates [dirs]
-  (->> dirs
-       (mapcat (fn [dir]
-                 (when (fs/exists? dir)
-                   (for [p (fs/glob dir "**.clj")]
-                     (-> p str (str/replace #"\.clj$" ""))))))
-       sort))
-
-(defn- build-request [name overrides]
-  (when (@running name)
-    (throw (ex-info (str "cycle detected on " name) {})))
-  (let [path (str name ".clj")]
-    (when-not (fs/exists? path)
-      (throw (ex-info (str "template not found: " name) {})))
-    (swap! running conj name)
-    (try
-      (let [forms        (read-template-forms path)
-            bindings     (merge (:variables (read-config)) overrides)
-            let-bindings (vec (mapcat (fn [[sym val]] [sym val]) bindings))
-            wrapped      (list 'let let-bindings (cons 'do forms))]
-        (eval wrapped))
-      (finally (swap! running disj name)))))
-
-(defn- run-template [name overrides]
-  (let [request  (build-request name overrides)
-        start    (System/currentTimeMillis)
-        response (http/request request)]
-    (assoc response
-           :elapsed-ms (- (System/currentTimeMillis) start)
-           :request    request)))
-
-(defn- shell-quote [s]
-  (str "'" (str/replace s "'" "'\\''") "'"))
-
-(defn- request->curl [req]
-  (let [lines (atom ["curl"
-                     (str "--request " (-> req :method name str/upper-case))
-                     (str "--url " (shell-quote (:uri req)))])]
-    (doseq [[k v] (sort-by key (or (:headers req) {}))]
-      (swap! lines conj (str "--header " (shell-quote (str k ": " v)))))
-    (let [body (:body req)]
-      (when (and (string? body) (seq body))
-        (swap! lines conj (str "--data-raw " (shell-quote body)))))
-    (str/join " \\\n  " @lines)))
-
-;; ─── CLI ─────────────────────────────────────────────────────────────
-
-(def cli-spec
-  {:spec {:help     {:coerce :boolean :alias :h :desc "show this help"}
-          :complete {:coerce :boolean :desc "list template names for shell completion"}
-          :as       {:coerce :keyword :desc "render as a snippet (curl)"}}})
-
-(defn- parse-overrides [args]
-  (into {} (for [a args :let [[k v] (str/split a #"=" 2)]]
-             [(symbol k) v])))
-
-(def ^:private rule-width 50)
-
-(defn- section-rule [label]
-  (let [prefix (str "── " label " ")
-        dashes (apply str (repeat (max 0 (- rule-width (count prefix))) "─"))]
-    (println (str prefix dashes))))
-
-(defn- content-type-lang [headers]
-  (let [ct (get headers "content-type" "")]
-    (cond
-      (str/includes? ct "json") "json"
-      (str/includes? ct "html") "html"
-      (str/includes? ct "xml")  "xml"
-      :else                     nil)))
-
-(defn- highlight-body [body headers]
-  (let [lang (content-type-lang headers)]
-    (if (and lang (System/console) (fs/which "bat"))
-      (:out (p/sh {:in body :out :string}
-                  "bat" "--color=always" "--paging=never"
-                  "--style=plain" "--language" lang))
-      body)))
-
-(defn- print-response [resp]
-  (let [{:keys [request elapsed-ms status headers body]} resp
-        method (-> request :method name str/upper-case)]
-    (println "→" method (:uri request))
-    (println "✓" status (str elapsed-ms "ms"))
-    (println)
-    (section-rule "headers")
-    (doseq [[k v] (sort-by key (dissoc headers ":status"))] (println (str k ": " v)))
-    (println)
-    (section-rule "body")
-    (println (highlight-body body headers))))
-
-(defn- print-help []
-  (println "usage: bb httpee.bb <template> [k=v ...]")
-  (println)
-  (println (cli/format-opts cli-spec)))
-
-(defn- template-title [name]
-  ;; Statically walk the parsed forms and return the first string `:title`
-  ;; we find on any map literal. Avoids eval'ing the template (which could
-  ;; require unbound vars or fire `json-request`).
-  (let [path (str name ".clj")]
-    (when (fs/exists? path)
-      (try
-        (->> (read-template-forms path)
-             (tree-seq coll? seq)
-             (some (fn [x]
-                     (when (and (map? x) (string? (:title x)))
-                       (:title x)))))
-        (catch Exception _ nil)))))
-
-(defn- list-templates []
-  (let [templates (discover-templates (:dirs (read-config)))]
-    (if (seq templates)
-      (let [titled (for [t templates] [t (template-title t)])
-            width  (apply max 0 (map (comp count first) titled))]
-        (doseq [[n t] titled]
-          (let [cell (format (str "%-" width "s") n)]
-            (if t
-              (println "❯" cell "  " t)
-              (println "❯" cell)))))
-      (println "no templates discovered (configure :dirs in httpee.edn)"))))
+         '[httpee.cli :as cli-helpers]
+         '[httpee.curl :as curl]
+         '[httpee.listing :as listing]
+         '[httpee.output :as output]
+         '[httpee.runner :as runner])
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (let [{:keys [opts args]} (cli/parse-args *command-line-args* cli-spec)
+  (let [{:keys [opts args]} (cli/parse-args *command-line-args* cli-helpers/spec)
         [template-name & override-args] args
-        overrides (parse-overrides override-args)]
+        overrides (cli-helpers/parse-overrides override-args)]
     (cond
-      (:complete opts)     (doseq [t (discover-templates (:dirs (read-config)))]
+      (:complete opts)     (doseq [t (runner/discover-templates
+                                       (:dirs (runner/read-config)))]
                              (println t))
-      (:help opts)         (print-help)
-      (nil? template-name) (list-templates)
+      (:help opts)         (cli-helpers/print-help)
+      (nil? template-name) (listing/list-templates)
       (:as opts)
       (try
-        (let [request (build-request template-name overrides)]
+        (let [request (runner/build-request template-name overrides)]
           (case (:as opts)
-            :curl (println (request->curl request))
+            :curl (println (curl/render request))
             (do (println "✗ unknown format:" (name (:as opts)))
                 (System/exit 1))))
-        (catch Exception e
-          (println "✗" (.getMessage e))
-          (System/exit 1)))
+        (catch Exception e (println "✗" (.getMessage e)) (System/exit 1)))
       :else
       (try
-        (print-response (run-template template-name overrides))
-        (catch Exception e
-          (println "✗" (.getMessage e))
-          (System/exit 1))))))
+        (output/print-response (runner/run-template template-name overrides))
+        (catch Exception e (println "✗" (.getMessage e)) (System/exit 1))))))

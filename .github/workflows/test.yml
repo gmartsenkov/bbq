@@ -11,10 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Babashka
+      - name: Set up Babashka and clj-kondo
         uses: DeLaGuardo/setup-clojure@13.4
         with:
           bb: latest
+          clj-kondo: latest
+
+      - name: Lint
+        run: clj-kondo --lint src --fail-level error
 
       - name: Run tests
         run: bb test

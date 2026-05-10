@@ -1,2 +1,2 @@
 {:dirs      ["auth" "users"]
- :variables {org "acme"}}
+ :variables {:org "acme"}}

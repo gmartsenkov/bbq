@@ -15,9 +15,10 @@ Set Theme "Catppuccin Mocha"
 Set Padding 20
 Set TypingSpeed 120ms
 
-# Setup: BOB is referenced by users/show; clear the screen.
+# Setup: cd into the example project so httpee finds its httpee.edn,
+# set BOB (referenced by users/show), and clear the screen.
 Hide
-Type "export BOB=demo && clear"
+Type "cd examples && export BOB=demo && clear"
 Enter
 Sleep 300ms
 Show
