@@ -1,0 +1,3 @@
+{:tasks
+ {test {:doc  "Run tests"
+        :task (shell "bb httpee_test.bb")}}}
