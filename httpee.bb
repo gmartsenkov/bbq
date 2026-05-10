@@ -87,14 +87,23 @@
   (into {} (for [a args :let [[k v] (str/split a #"=" 2)]]
              [(symbol k) v])))
 
+(def ^:private rule-width 50)
+
+(defn- section-rule [label]
+  (let [prefix (str "── " label " ")
+        dashes (apply str (repeat (max 0 (- rule-width (count prefix))) "─"))]
+    (println (str prefix dashes))))
+
 (defn- print-response [resp]
   (let [{:keys [request elapsed-ms status headers body]} resp
         method (-> request :method name str/upper-case)]
     (println "→" method (:uri request))
     (println "✓" status (str elapsed-ms "ms"))
     (println)
-    (doseq [[k v] (sort-by key (dissoc headers :status))] (println (str k ": " v)))
+    (section-rule "headers")
+    (doseq [[k v] (sort-by key (dissoc headers ":status"))] (println (str k ": " v)))
     (println)
+    (section-rule "body")
     (println body)))
 
 (defn- print-help []
