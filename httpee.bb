@@ -58,7 +58,7 @@
                      (-> p str (str/replace #"\.clj$" ""))))))
        sort))
 
-(defn- run-template [name overrides]
+(defn- build-request [name overrides]
   (when (@running name)
     (throw (ex-info (str "cycle detected on " name) {})))
   (let [path (str name ".clj")]
@@ -69,21 +69,38 @@
       (let [forms        (read-template-forms path)
             bindings     (merge (:variables (read-config)) overrides)
             let-bindings (vec (mapcat (fn [[sym val]] [sym val]) bindings))
-            wrapped      (list 'let let-bindings (cons 'do forms))
-            request      (eval wrapped)
-            start        (System/currentTimeMillis)
-            response     (http/request request)]
-        (assoc response
-               :elapsed-ms (- (System/currentTimeMillis) start)
-               :request    request))
+            wrapped      (list 'let let-bindings (cons 'do forms))]
+        (eval wrapped))
       (finally (swap! running disj name)))))
+
+(defn- run-template [name overrides]
+  (let [request  (build-request name overrides)
+        start    (System/currentTimeMillis)
+        response (http/request request)]
+    (assoc response
+           :elapsed-ms (- (System/currentTimeMillis) start)
+           :request    request)))
+
+(defn- shell-quote [s]
+  (str "'" (str/replace s "'" "'\\''") "'"))
+
+(defn- request->curl [req]
+  (let [lines (atom ["curl"
+                     (str "--request " (-> req :method name str/upper-case))
+                     (str "--url " (shell-quote (:uri req)))])]
+    (doseq [[k v] (sort-by key (or (:headers req) {}))]
+      (swap! lines conj (str "--header " (shell-quote (str k ": " v)))))
+    (let [body (:body req)]
+      (when (and (string? body) (seq body))
+        (swap! lines conj (str "--data-raw " (shell-quote body)))))
+    (str/join " \\\n  " @lines)))
 
 ;; ─── CLI ─────────────────────────────────────────────────────────────
 
 (def cli-spec
-  {:spec       {:help     {:coerce :boolean :alias :h :desc "show this help"}
-                :complete {:coerce :boolean :desc "list template names for shell completion"}}
-   :args->opts [:template]})
+  {:spec {:help     {:coerce :boolean :alias :h :desc "show this help"}
+          :complete {:coerce :boolean :desc "list template names for shell completion"}
+          :as       {:coerce :keyword :desc "render as a snippet (curl)"}}})
 
 (defn- parse-overrides [args]
   (into {} (for [a args :let [[k v] (str/split a #"=" 2)]]
@@ -136,15 +153,27 @@
       (println "no templates discovered (configure :dirs in httpee.edn)"))))
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (let [{:keys [opts args]} (cli/parse-args *command-line-args* cli-spec)]
+  (let [{:keys [opts args]} (cli/parse-args *command-line-args* cli-spec)
+        [template-name & override-args] args
+        overrides (parse-overrides override-args)]
     (cond
-      (:complete opts)        (doseq [t (discover-templates (:dirs (read-config)))]
-                                (println t))
-      (:help opts)            (print-help)
-      (nil? (:template opts)) (list-templates)
+      (:complete opts)     (doseq [t (discover-templates (:dirs (read-config)))]
+                             (println t))
+      (:help opts)         (print-help)
+      (nil? template-name) (list-templates)
+      (:as opts)
+      (try
+        (let [request (build-request template-name overrides)]
+          (case (:as opts)
+            :curl (println (request->curl request))
+            (do (println "✗ unknown format:" (name (:as opts)))
+                (System/exit 1))))
+        (catch Exception e
+          (println "✗" (.getMessage e))
+          (System/exit 1)))
       :else
       (try
-        (print-response (run-template (:template opts) (parse-overrides args)))
+        (print-response (run-template template-name overrides))
         (catch Exception e
           (println "✗" (.getMessage e))
           (System/exit 1))))))
