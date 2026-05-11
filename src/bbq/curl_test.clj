@@ -15,3 +15,17 @@
                 "  --header 'content-type: application/json' \\\n"
                 "  --data-raw '{\"name\": \"O'\\''Brien\"}'")
            (curl/render req)))))
+
+(deftest render-query-params-test
+  (is (= (str "curl \\\n"
+              "  --request GET \\\n"
+              "  --url 'https://api.example.com/search?q=hello+world&limit=10'")
+         (curl/render {:method       :GET
+                       :uri          "https://api.example.com/search"
+                       :query-params {:q "hello world" :limit 10}})))
+  (is (= (str "curl \\\n"
+              "  --request GET \\\n"
+              "  --url 'https://api.example.com/items?existing=1&new=2'")
+         (curl/render {:method       :GET
+                       :uri          "https://api.example.com/items?existing=1"
+                       :query-params {:new 2}}))))

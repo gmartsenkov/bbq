@@ -100,7 +100,8 @@ Because templates are just Clojure forms, you can also `(require '[clojure.strin
 | Key | Required | Notes |
 |--|--|--|
 | `:method` | yes | `:GET`, `:POST`, `:PUT`, `:DELETE`, etc. |
-| `:uri` | yes | Full URL. |
+| `:uri` | yes | Full URL. May include a query string. |
+| `:query-params` | no | Map of `:key value` pairs appended to `:uri`. Values are URL-encoded; sequences expand to repeated keys. |
 | `:headers` | no | Map of string keys → string values. |
 | `:body` | no | Usually a JSON-encoded string. |
 | `:title` | no | Optional short title shown in `bbq` (template listing). |
