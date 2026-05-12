@@ -79,6 +79,7 @@ A template is a `.clj` file that evaluates to a request map. Any keys not consum
 | `(env "NAME")` | Read an environment variable. Throws if unset. |
 | `(bearer token)` | → `"Bearer <token>"`. |
 | `(basic user pass)` | → `"Basic <base64(user:pass)>"`. |
+| `(base64-encode s)` | Base64-encode a string (UTF-8). |
 | `(json-encode x)` | Serialize a Clojure value as JSON. |
 | `(json-request "tmpl/name")` | Run another template, parse the response body as JSON, return it as a navigable map. |
 

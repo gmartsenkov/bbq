@@ -1,6 +1,6 @@
 (ns bbq
   "Helpers exposed to bbq templates. Require with
-   `(:require [bbq :refer [env bearer basic json-encode json-request v]])`."
+   `(:require [bbq :refer [env bearer basic base64-encode json-encode json-request v]])`."
   (:require [cheshire.core :as json]))
 
 (def ^:dynamic *run-template*
@@ -25,12 +25,14 @@
   (or (System/getenv name)
       (throw (ex-info (str "environment variable '" name "' is not set") {}))))
 
+(defn base64-encode [s]
+  (.encodeToString (java.util.Base64/getEncoder) (.getBytes (str s))))
+
 (defn bearer [token]
   (str "Bearer " token))
 
 (defn basic [user pass]
-  (str "Basic " (.encodeToString (java.util.Base64/getEncoder)
-                                 (.getBytes (str user ":" pass)))))
+  (str "Basic " (base64-encode (str user ":" pass))))
 
 (def json-encode json/generate-string)
 
