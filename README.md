@@ -54,6 +54,8 @@ Then:
 bbq                              # list available templates
 bbq users/show id=42             # run with an override
 bbq users/show id=42 --as=curl   # render the request as a curl one-liner
+bbq users/show id=42 --pager       # open the response body in a viewer (defaults to bat → less)
+bbq users/show id=42 --pager=nvim  # …or pin to any command that accepts the body on stdin
 bbq --help
 ```
 

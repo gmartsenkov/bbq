@@ -8,7 +8,8 @@
          '[bbq.runner :as runner])
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (let [{:keys [opts args]} (cli/parse-args *command-line-args* cli-helpers/spec)
+  (let [normalized (map #(if (= % "--pager") "--pager=auto" %) *command-line-args*)
+        {:keys [opts args]} (cli/parse-args normalized cli-helpers/spec)
         [template-name & override-args] args
         overrides (cli-helpers/parse-overrides override-args)]
     (cond
@@ -27,5 +28,6 @@
         (catch Exception e (println "✗" (.getMessage e)) (System/exit 1)))
       :else
       (try
-        (output/print-response (runner/run-template template-name overrides))
+        (output/print-response (runner/run-template template-name overrides)
+                               {:pager (:pager opts)})
         (catch Exception e (println "✗" (.getMessage e)) (System/exit 1))))))

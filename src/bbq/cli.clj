@@ -5,7 +5,8 @@
 (def spec
   {:spec {:help     {:coerce :boolean :alias :h :desc "show this help"}
           :complete {:coerce :boolean :desc "list template names for shell completion"}
-          :as       {:coerce :keyword :desc "render as a snippet (curl)"}}})
+          :as       {:coerce :keyword :desc "render as a snippet (curl)"}
+          :pager    {:coerce :string :desc "open the response body in a viewer (--pager defaults to =auto; or =bat, =less, =nvim, …)"}}})
 
 (defn parse-overrides [args]
   (into {} (for [a args :let [[k val] (str/split a #"=" 2)]]
