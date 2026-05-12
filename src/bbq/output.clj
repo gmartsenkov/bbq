@@ -1,6 +1,7 @@
 (ns bbq.output
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
+            [cheshire.core :as json]
             [clojure.string :as str]))
 
 (def ^:private rule-width 50)
@@ -18,10 +19,16 @@
       (str/includes? ct "xml")  "xml"
       :else                     nil)))
 
+(defn- pretty-json [s]
+  (try
+    (json/generate-string (json/parse-string s) {:pretty true})
+    (catch Exception _ s)))
+
 (defn- highlight-body [body headers]
   ;; Skip bat when stdout isn't a TTY (piped) or bat is missing — fall
   ;; back to raw bytes so downstream tools don't see ANSI escapes.
-  (let [lang (content-type-lang headers)]
+  (let [lang (content-type-lang headers)
+        body (if (= lang "json") (pretty-json body) body)]
     (if (and lang (System/console) (fs/which "bat"))
       (:out (p/sh {:in body :out :string}
                   "bat" "--color=always" "--paging=never"
