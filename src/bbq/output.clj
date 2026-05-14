@@ -50,28 +50,32 @@
       (and lang (#{"vim" "nvim"} pager)) (into ["-c" (str "set ft=" lang)])
       :always (conj "-"))))
 
-(defn- page-body [body headers pager]
-  (let [lang (content-type-lang headers)
-        body (if (= lang "json") (pretty-json body) body)
-        args (pager-args pager lang)]
-    (if args
-      @(p/process args {:in body :out :inherit :err :inherit})
-      (do (println "✗ pager 'auto' found neither bat nor less on PATH")
-          (println body)))))
+(defn- write-preamble [{:keys [request elapsed-ms status headers]}]
+  (let [method (-> request :method name str/upper-case)]
+    (println "→" method (:uri request))
+    (println "✓" status (str elapsed-ms "ms"))
+    (println)
+    (section-rule "headers")
+    (doseq [[k v] (sort-by key (dissoc headers ":status"))]
+      (println (str k ": " v)))
+    (println)
+    (section-rule "body")))
+
+(defn- pretty-body [body headers]
+  (let [lang (content-type-lang headers)]
+    (if (= lang "json") (pretty-json body) body)))
 
 (defn print-response
   ([resp] (print-response resp {}))
   ([resp {:keys [pager]}]
-   (let [{:keys [request elapsed-ms status headers body]} resp
-         method (-> request :method name str/upper-case)]
-     (println "→" method (:uri request))
-     (println "✓" status (str elapsed-ms "ms"))
-     (println)
-     (section-rule "headers")
-     (doseq [[k v] (sort-by key (dissoc headers ":status"))]
-       (println (str k ": " v)))
-     (println)
-     (section-rule "body")
-     (if pager
-       (page-body body headers pager)
-       (println (highlight-body body headers))))))
+   (if pager
+     (let [text (with-out-str
+                  (write-preamble resp)
+                  (println (pretty-body (:body resp) (:headers resp))))
+           args (pager-args pager (content-type-lang (:headers resp)))]
+       (if args
+         @(p/process args {:in text :out :inherit :err :inherit})
+         (do (println "✗ pager 'auto' found neither bat nor less on PATH")
+             (print text))))
+     (do (write-preamble resp)
+         (println (highlight-body (:body resp) (:headers resp)))))))
