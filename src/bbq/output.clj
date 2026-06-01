@@ -24,16 +24,19 @@
     (json/generate-string (json/parse-string s) {:pretty true})
     (catch Exception _ s)))
 
-(defn- highlight-body [body headers]
+(defn- highlight-body! [body headers]
   ;; Skip bat when stdout isn't a TTY (piped) or bat is missing — fall
   ;; back to raw bytes so downstream tools don't see ANSI escapes.
+  ;; When bat is used, inherit stdout so its auto theme detection
+  ;; sees the real terminal instead of falling back to the dark default.
   (let [lang (content-type-lang headers)
         body (if (= lang "json") (pretty-json body) body)]
     (if (and lang (System/console) (fs/which "bat"))
-      (:out (p/sh {:in body :out :string}
-                  "bat" "--color=always" "--paging=never"
-                  "--style=plain" "--language" lang))
-      body)))
+      (do @(p/process {:in body :out :inherit :err :inherit}
+                      "bat" "--paging=never" "--style=plain"
+                      "--language" lang)
+          nil)
+      (println body))))
 
 (defn- bat-args [lang]
   (cond-> ["bat" "--color=always" "--paging=always" "--style=plain"]
@@ -78,4 +81,4 @@
          (do (println "✗ pager 'auto' found neither bat nor less on PATH")
              (print text))))
      (do (write-preamble resp)
-         (println (highlight-body (:body resp) (:headers resp)))))))
+         (highlight-body! (:body resp) (:headers resp))))))
